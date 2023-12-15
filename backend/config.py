@@ -49,49 +49,6 @@ class Settings(BaseSettings):
     RESOURCE_URL_LEVEL2_JSONPATH: str = (
         "$[?code='{}'].contents[*].subcontents[?code='{}'].links[?format='zip'].url"
     )
-    # LTR_DIRECTION_HTML: str = "<div style='direction: ltr;'>"
-    # RTL_DIRECTION_HTML: str = "<div style='direction: rtl;'>"
-
-    # END_OF_CHAPTER_HTML: str = '<div class="end-of-chapter"></div>'
-    # LANGUAGE_FMT_STR: str = "<h1 style='text-align: center'>Language: {}</h1>"
-    # RESOURCE_TYPE_NAME_FMT_STR: str = "<h1>{}</h1>"
-    # TN_VERSE_NOTES_ENCLOSING_DIV_FMT_STR: str = "<div style='column-count: 2;'>{}</div>"
-    # TQ_HEADING_AND_QUESTIONS_FMT_STR: str = (
-    #     "<h3>{}</h3>\n<div style='column-count: 2;'>{}</div>"
-    # )
-    # HTML_ROW_BEGIN: HtmlContent = HtmlContent("<div class='row'>")
-    # HTML_ROW_END: HtmlContent = HtmlContent("</div>")
-    # HTML_COLUMN_BEGIN: HtmlContent = HtmlContent("<div class='column'>")
-    # HTML_COLUMN_END: HtmlContent = HtmlContent("</div>")
-    # HTML_COLUMN_LEFT_BEGIN: HtmlContent = HtmlContent("<div class='column-left'>")
-    # HTML_COLUMN_RIGHT_BEGIN: HtmlContent = HtmlContent("<div class='column-right'>")
-    # BOOK_NAME_FMT_STR: str = "<h2 style='text-align: center;'>{}</h2>"
-    # BOOK_FMT_STR: str = "<h2 style='text-align: center;'>{}</h2>"
-    # TODO Should this be center aligned too?
-    # BOOK_AS_GROUPER_FMT_STR: str = "<h1>{}</h1>"
-    # CHAPTER_HEADER_FMT_STR: str = '<h2 class="c-num" id="{}-{}-ch-{}">Chapter {}</h2>'
-    # UNORDERED_LIST_BEGIN_STR: HtmlContent = HtmlContent("<ul>")
-    # UNORDERED_LIST_END_STR: HtmlContent = HtmlContent("</ul>")
-    # TRANSLATION_WORD_LIST_ITEM_FMT_STR: HtmlContent = HtmlContent(
-    #     '<li><a href="#{}-{}">{}</a></li>'
-    # )
-    # TRANSLATION_WORD_VERSE_SECTION_HEADER_STR: HtmlContent = HtmlContent(
-    #     "<h4>Uses:</h4>"
-    # )
-    # TRANSLATION_WORD_VERSE_REF_ITEM_FMT_STR: str = (
-    #     '<li><a href="#{}-{}-ch-{}-v-{}">{} {}:{}</a></li>'
-    # )
-    # FOOTNOTES_HEADING: HtmlContent = HtmlContent("<h4>Footnotes</h4>")
-    # OPENING_H3_FMT_STR: str = "<h3>{}"
-    # OPENING_H3_WITH_ID_FMT_STR: str = '<h3 id="{}-{}">{}'
-    # TRANSLATION_WORD_ANCHOR_LINK_FMT_STR: str = "[{}](#{}-{})"
-    # TRANSLATION_WORD_PREFIX_ANCHOR_LINK_FMT_STR: str = "({}: [{}](#{}-{}))"
-    # TRANSLATION_WORD_PREFIX_FMT_STR: str = "({}: {})"
-    # # TRANSLATION_NOTE_ANCHOR_LINK_FMT_STR: str = "[{}](#{}-{}-tn-ch-{}-v-{})"
-    # TRANSLATION_NOTE_ANCHOR_LINK_FMT_STR: str = "[{}](#{}-{}-ch-{}-v-{})"
-    # VERSE_ANCHOR_ID_FMT_STR: str = 'id="(.+?)-ch-(.+?)-v-(.+?)"'
-    # VERSE_ANCHOR_ID_SUBSTITUTION_FMT_STR: str = r"id='{}-\1-ch-\2-v-\3'"
-
     USFM_RESOURCE_TYPES: Sequence[str] = [
         "ayt",
         "cuv",
@@ -122,122 +79,6 @@ class Settings(BaseSettings):
     TW_RESOURCE_TYPES: Sequence[str] = ["tw"]
     EN_TW_RESOURCE_TYPES: Sequence[str] = ["tw-wa"]
     BC_RESOURCE_TYPES: Sequence[str] = ["bc-wa"]
-    # List of language codes for which there is a content issue
-    # such that a complete document request cannot
-    # be formed. E.g., hu doesn't have any resource types or book
-    # codes in translations.json. E.g., abz's content has unresolved
-    # git merge markers in source that were accidentally committed.
-    # TODO Test to see which of these languages can be added back now
-    # that several content defect handling features have been added.
-    # LANG_CODE_FILTER_LIST: Sequence[str] = [
-    #     "acq",
-    #     "gaj-x-ymnk",
-    #     "fa",
-    #     "hr",
-    #     "hu",
-    #     # "id",  # Was on this list because of licensing issues
-    #     "kbt",
-    #     "kip",
-    #     "lus",
-    #     "mor",
-    #     "mve",
-    #     "pmy",  # Currently doesn't provide USFM, but might soon
-    #     "sr-Latn",
-    #     "tig",
-    #     "tem",
-    # ]
-    # GATEWAY_LANGUAGES: Sequence[str] = [
-    #     "am",
-    #     "arb",
-    #     "as",
-    #     "bn",
-    #     "pt-br",
-    #     "my",
-    #     "ceb",
-    #     "zh",
-    #     "en",
-    #     "fr",
-    #     "gu",
-    #     "ha",
-    #     "hi",
-    #     "ilo",
-    #     "id",
-    #     "kn",
-    #     "km",
-    #     "lo",
-    #     "es-419",
-    #     "plt",
-    #     "ml",
-    #     "mr",
-    #     "ne",
-    #     "or",
-    #     "pmy",
-    #     "fa",
-    #     "pa",
-    #     "ru",
-    #     "sw",
-    #     "tl",
-    #     "ta",
-    #     "te",
-    #     "th",
-    #     "tpi",
-    #     "ur",
-    #     "ur-deva",
-    #     "vi",
-    # ]
-
-    # fmt: off
-    # BC_ARTICLE_URL_FMT_STR: str = "https://content.bibletranslationtools.org/WycliffeAssociates/en_bc/src/branch/master/{}"
-    # fmt: on
-
-    # OXML_LANGUAGE_LIST: list[str] = [
-    #     "ar-SA",
-    #     "bg-BG",
-    #     "zh-CN",
-    #     "zh-TW",
-    #     "hr-HR",
-    #     "cs-CZ",
-    #     "da-DK",
-    #     "nl-NL",
-    #     "en-US",
-    #     "et-EE",
-    #     "fi-FI",
-    #     "fr-FR",
-    #     "de-DE",
-    #     "el-GR",
-    #     "he-IL",
-    #     "hi-IN",
-    #     "hu-HU",
-    #     "id-ID",
-    #     "it-IT",
-    #     "ja-JP",
-    #     "kk-KZ",
-    #     "ko-KR",
-    #     "lv-LV",
-    #     "lt-LT",
-    #     "ms-MY",
-    #     "nb-NO",
-    #     "pl-PL",
-    #     "pt-BR",
-    #     "pt-PT",
-    #     "ro-RO",
-    #     "ru-RU",
-    #     "sr-latn-RS",
-    #     "sk-SK",
-    #     "sl-SI",
-    #     "es-ES",
-    #     "sv-SE",
-    #     "th-TH",
-    #     "tr-TR",
-    #     "uk-UA",
-    #     "vi-VN",
-    # ]
-    # OXML_LANGUAGE_LIST_LOWERCASE: list[str] = [
-    #     language.lower() for language in OXML_LANGUAGE_LIST
-    # ]
-    # OXML_LANGUAGE_LIST_LOWERCASE_SPLIT: list[str] = [
-    #     language for language in OXML_LANGUAGE_LIST_LOWERCASE if "-" in language
-    # ]
 
     def logger(self, name: str) -> logging.Logger:
         """
@@ -314,20 +155,6 @@ class Settings(BaseSettings):
         "tw": "Translation Words (tw)",
     }
 
-    # TEMPLATE_PATHS_MAP: Mapping[str, str] = {
-    #     "book_intro": "backend/templates/tn/book_intro_template.md",
-    #     "header_enclosing": "backend/templates/html/header_enclosing.html",
-    #     "header_no_css_enclosing": "backend/templates/html/header_no_css_enclosing.html",
-    #     "header_compact_enclosing": "backend/templates/html/header_compact_enclosing.html",
-    #     "footer_enclosing": "backend/templates/html/footer_enclosing.html",
-    #     "cover": "backend/templates/html/cover.html",
-    #     "email-html": "backend/templates/html/email.html",
-    #     "email": "backend/templates/text/email.txt",
-    # }
-
-    # DOCX_TEMPLATE_PATH: str = "/app/template.docx"
-    # DOCX_COMPACT_TEMPLATE_PATH: str = "/app/template_compact.docx"
-
     # Return boolean indicating if caching of generated documents should be
     # cached.
     ASSET_CACHING_ENABLED: bool = True
@@ -336,21 +163,6 @@ class Settings(BaseSettings):
     # the case of resource asset files) or re-generating them (in the
     # case of the final PDF). In hours.
     ASSET_CACHING_PERIOD: int
-
-    # It doesn't yet make sense to offer the (high level)
-    # assembly strategy _and_ the assembly sub-strategy to the end user
-    # as a document request parameter so we'll just choose an arbitrary
-    # sub-strategy here. This means that we can write code for multiple
-    # sub-strategies and choose one to put in play at a time here.
-
-    # Return a list of the Markdown section titles that our
-    # Python-Markdown remove_section_processor extension should remove.
-    # MARKDOWN_SECTIONS_TO_REMOVE: list[str] = [
-    #     "Examples from the Bible stories",
-    #     "Links",
-    #     "Picture of",
-    #     "Pictures",
-    # ]
 
     # Provided by .env file:
     EMAIL_SEND_SUBJECT: str
