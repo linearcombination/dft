@@ -12,6 +12,7 @@ DOC @ file:///Users/lriley/src/WA/github.com/linearcombination/DOC
 # flower
 # htmldocx
 # html2docx
+gql[all]
 # gunicorn
 # jinja2
 # jsonpath-rw
