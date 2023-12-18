@@ -168,22 +168,11 @@ def usfm_books(
     usfm_books = []
     for book_code in book_codes:
         for usfm_resource_type_and_name in usfm_resource_types_and_names:
-            # FIXME usfm_resource_lookup uses translations.json to find lookup info.
-            # Bear in mind that if we are working with mirrored repos that are not
-            # in translations.json this is a chicken before the egg situation.
-            # However, if we find the issue in the repo pointed to by
-            # translations.json then we can subsequently lookup its mirrored repo
-            # using some reliable URL naming pattern and make changes on the
-            # mirrored repo.
             resource_lookup_dto = resource_lookup.usfm_resource_lookup(
                 lang_code,
                 usfm_resource_type_and_name[0],
                 book_code,
             )
-            # FIXME Some assets will not be git repos, for those that are zip files we can
-            # at least find issues. We would need to determine the git repo where
-            # the zips are coming from in order to see if that repo was mirrored so
-            # that we could clone and make changes there.
             resource_dir = resource_lookup.provision_asset_files(resource_lookup_dto)
             try:
                 # Reify the content
@@ -232,7 +221,6 @@ def dfts_for_language(
             for book_code in resource_lookup.book_codes_for_lang(gl_lang_code)
             if book_code[0] in gtf_terms_table.keys()
         ]
-        logger.debug("gl_book_codes: %s", gl_book_codes)
         gl_usfm_resource_types_and_names = [
             resource_type_and_name
             for resource_type_and_name in resource_types_and_names_for_lang(
@@ -240,13 +228,9 @@ def dfts_for_language(
             )
             if resource_type_and_name[0] in gl_usfm_resource_types
         ]
-        logger.debug(
-            "gl_usfm_resource_types_and_names: %s", gl_usfm_resource_types_and_names
-        )
         gl_usfm_books = usfm_books(
             gl_book_codes, gl_usfm_resource_types_and_names, gl_lang_code
         )
-        # logger.debug("gl_usfm_books: %s", gl_usfm_books)
     # Could be more than one USFM type per language, e.g., ulb and f10
     # For each USFM type associated with the language
     hl_usfm_resource_types_and_names = [
@@ -256,9 +240,6 @@ def dfts_for_language(
         )
         if resource_type_and_name[0] in usfm_resource_types
     ]
-    # logger.debug(
-    #     "hl_usfm_resource_types_and_names: %s", hl_usfm_resource_types_and_names
-    # )
     hl_usfm_books = usfm_books(
         hl_book_codes, hl_usfm_resource_types_and_names, hl_lang_code_and_name[0]
     )
@@ -270,8 +251,6 @@ def dfts_for_language(
         gl_gtf_chapters = (
             gtf_terms_table[gl_usfm_book.book_code] if gl_usfm_book else {}
         )
-        # logger.debug("hl_gtf_chapters: %s", hl_gtf_chapters)
-        # logger.debug("gl_gtf_chapters: %s", gl_gtf_chapters)
         for (hl_gtf_chapter_num, hl_gtf_verse_nums), (
             gl_gtf_chapter_num,
             gl_gtf_verse_nums,
@@ -303,8 +282,6 @@ def dfts_for_language(
                     )
                 )
     return output_table
-
-
 
 
 if __name__ == "__main__":
