@@ -212,7 +212,6 @@ def dfts_for_language(
         for book_code in resource_lookup.book_codes_for_lang(hl_lang_code_and_name[0])
         if book_code[0] in gtf_terms_table.keys()
     ]
-    logger.debug("hl_book_codes: %s", hl_book_codes)
     gl_book_codes = []
     gl_usfm_books: list[USFMBook] = []
     if gl_lang_code:
