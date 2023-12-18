@@ -198,8 +198,8 @@ def dfts_for_language(
     the requested language.
 
     Usage:
-    >>> #dfts_for_language(("tpi", "Tok Pisin"), "aob")
-    >>> dfts_for_language(("tpi", "Tok Pisin"), "en")
+    >>> #dfts_for_language(("tpi", "Tok Pisin"), associated_gateway_language_for_heart_language("tpi"))
+    >>> dfts_for_language(("abz", "Abui"), associated_gateway_language_for_heart_language("abz"))
     """
     output_table: list[str] = []
     output_table.append(column_labels)
