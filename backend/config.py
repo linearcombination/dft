@@ -90,15 +90,7 @@ class Settings(BaseSettings):
             lc.dictConfig(logging_config)
         return logging.getLogger(name)
 
-    # def api_test_url(self) -> str:
-    #     """Non-secure local URL for running the Fastapi server for testing."""
-    #     return "http://{}:{}".format(self.API_TEST_BASE_URL, self.API_LOCAL_PORT)
-
-    # API_TEST_BASE_URL: str = "http://localhost"
-
     API_LOCAL_PORT: int
-
-    # USE_GIT_CLI: bool = False
 
     LOGGING_CONFIG_FILE_PATH: str = "backend/logging_config.yaml"
 
@@ -186,7 +178,6 @@ class Settings(BaseSettings):
     USER_AGENT: str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11"
 
     # Used in assembly_strategy_utils modeule when zero-filling various strings
-    NUM_ZEROS: int = 3
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
