@@ -12,6 +12,7 @@ from urllib.request import urlopen
 
 from document.config import settings
 from document.domain import model, parsing, resource_lookup
+from document.domain.bible_books import BOOK_NAMES
 from document.domain.model import USFMBook
 from document.utils.file_utils import (
     delete_tree,
@@ -191,6 +192,7 @@ def dfts_for_language(
     gl_lang_code: Optional[str] = None,
     usfm_resource_types: Sequence[str] = settings.USFM_RESOURCE_TYPES,
     gl_usfm_resource_types: Sequence[str] = settings.ALL_USFM_RESOURCE_TYPES,
+    book_names: Mapping[str, str] = BOOK_NAMES,
     column_labels: str = "Verse Reference, GL (from DOC), HL (from DOC), Backtranslate HL to GL via Chatgpt, Comments\n",
 ) -> list[str]:
     """
@@ -242,7 +244,15 @@ def dfts_for_language(
     hl_usfm_books = usfm_books(
         hl_book_codes, hl_usfm_resource_types_and_names, hl_lang_code_and_name[0]
     )
-    for hl_usfm_book, gl_usfm_book in zip_longest(hl_usfm_books, gl_usfm_books):
+    for hl_usfm_book in hl_usfm_books:
+        gl_usfm_books = [
+            gl_usfm_book
+            for gl_usfm_book in gl_usfm_books
+            if gl_usfm_book.book_code == hl_usfm_book.book_code
+        ]
+        gl_usfm_book = gl_usfm_books[0] if gl_usfm_books else None
+        logger.debug("hl_usfm_book: %s", hl_usfm_book)
+        logger.debug("gl_usfm_book: %s", gl_usfm_book)
         # Get the chapter/verses lists from the gtf_terms_table for the current book
         hl_gtf_chapters = (
             gtf_terms_table[hl_usfm_book.book_code] if hl_usfm_book else {}
@@ -250,13 +260,24 @@ def dfts_for_language(
         gl_gtf_chapters = (
             gtf_terms_table[gl_usfm_book.book_code] if gl_usfm_book else {}
         )
-        for (hl_gtf_chapter_num, hl_gtf_verse_nums), (
-            gl_gtf_chapter_num,
-            gl_gtf_verse_nums,
-        ) in zip_longest(hl_gtf_chapters.items(), gl_gtf_chapters.items()):
-            for hl_verse_num, gl_verse_num in zip_longest(
-                hl_gtf_verse_nums, gl_gtf_verse_nums
-            ):
+        if not hl_gtf_chapters:
+            if gl_gtf_chapters:
+                for (
+                    gl_gtf_chapters_chapter_num,
+                    gl_gtf_chapters_verse_nums,
+                ) in gl_gtf_chapters.items():
+                    hl_gtf_chapters[gl_gtf_chapters_chapter_num] = []
+        if not gl_gtf_chapters:
+            if hl_gtf_chapters:
+                for (
+                    hl_gtf_chapters_chapter_num,
+                    hl_gtf_chapters_verse_nums,
+                ) in hl_gtf_chapters.items():
+                    gl_gtf_chapters[hl_gtf_chapters_chapter_num] = []
+        logger.debug("hl_gtf_chapters: %s", hl_gtf_chapters)
+        logger.debug("gl_gtf_chapters: %s", gl_gtf_chapters)
+        for hl_gtf_chapter_num, hl_gtf_verse_nums in hl_gtf_chapters.items():
+            for hl_verse_num in hl_gtf_verse_nums:
                 hl_verse = (
                     hl_usfm_book.chapters[hl_gtf_chapter_num].verses[str(hl_verse_num)]
                     if hl_usfm_book
@@ -266,17 +287,17 @@ def dfts_for_language(
                     else ""
                 )
                 gl_verse = (
-                    gl_usfm_book.chapters[gl_gtf_chapter_num].verses[str(gl_verse_num)]
+                    gl_usfm_book.chapters[hl_gtf_chapter_num].verses[str(hl_verse_num)]
                     if gl_usfm_book
-                    and gl_gtf_chapter_num in gl_usfm_book.chapters.keys()
-                    and str(gl_verse_num)
-                    in gl_usfm_book.chapters[gl_gtf_chapter_num].verses.keys()
+                    and hl_gtf_chapter_num in gl_usfm_book.chapters.keys()
+                    and str(hl_verse_num)
+                    in gl_usfm_book.chapters[hl_gtf_chapter_num].verses.keys()
                     else ""
                 )
                 output_table.append(
                     # The last column in the row is the empty comments column
                     (
-                        f"{hl_usfm_book.book_code} {hl_gtf_chapter_num}:{hl_verse_num},"
+                        f"{book_names[hl_usfm_book.book_code]} {hl_gtf_chapter_num}:{hl_verse_num},"
                         f"{gl_verse}, {hl_verse}, chatgpt backtranslate output goes here, \n"
                     )
                 )
