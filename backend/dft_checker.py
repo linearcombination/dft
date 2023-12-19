@@ -188,8 +188,7 @@ def usfm_books(
 
 
 def dfts_for_language(
-    hl_lang_code_and_name: tuple[str, str, bool],
-    gl_lang_code: Optional[str] = None,
+    lang_code: str,
     usfm_resource_types: Sequence[str] = settings.USFM_RESOURCE_TYPES,
     gl_usfm_resource_types: Sequence[str] = settings.ALL_USFM_RESOURCE_TYPES,
     book_names: Mapping[str, str] = BOOK_NAMES,
@@ -200,18 +199,21 @@ def dfts_for_language(
     the requested language.
 
     Usage:
-    >>> #dfts_for_language(("tpi", "Tok Pisin"), associated_gateway_language_for_heart_language("tpi"))
-    >>> dfts_for_language(("abz", "Abui"), associated_gateway_language_for_heart_language("abz"))
+    >>> dfts_for_language("tpi")
+    >>> dfts_for_language("abz")
+    >>> dfts_for_language("ach-SS-acholi")
+
     """
     output_table: list[str] = []
     output_table.append(column_labels)
-    logger.debug("About to get data for heart language: %s", hl_lang_code_and_name)
+    gl_lang_code = associated_gateway_language_for_heart_language(lang_code)
+    logger.debug("About to get data for heart language: %s", lang_code)
     logger.debug("About to get data for gateway language: %s", gl_lang_code)
     # Get book codes for language and filter book codes to only
     # those that are referenced in the gtf_terms_table
     hl_book_codes = [
         book_code[0]
-        for book_code in resource_lookup.book_codes_for_lang(hl_lang_code_and_name[0])
+        for book_code in resource_lookup.book_codes_for_lang(lang_code)
         if book_code[0] in gtf_terms_table.keys()
     ]
     gl_book_codes = []
@@ -236,13 +238,11 @@ def dfts_for_language(
     # For each USFM type associated with the language
     hl_usfm_resource_types_and_names = [
         resource_type_and_name
-        for resource_type_and_name in resource_types_and_names_for_lang(
-            hl_lang_code_and_name[0]
-        )
+        for resource_type_and_name in resource_types_and_names_for_lang(lang_code)
         if resource_type_and_name[0] in usfm_resource_types
     ]
     hl_usfm_books = usfm_books(
-        hl_book_codes, hl_usfm_resource_types_and_names, hl_lang_code_and_name[0]
+        hl_book_codes, hl_usfm_resource_types_and_names, lang_code
     )
     for hl_usfm_book in hl_usfm_books:
         gl_usfm_books = [
@@ -251,8 +251,6 @@ def dfts_for_language(
             if gl_usfm_book.book_code == hl_usfm_book.book_code
         ]
         gl_usfm_book = gl_usfm_books[0] if gl_usfm_books else None
-        logger.debug("hl_usfm_book: %s", hl_usfm_book)
-        logger.debug("gl_usfm_book: %s", gl_usfm_book)
         # Get the chapter/verses lists from the gtf_terms_table for the current book
         hl_gtf_chapters = (
             gtf_terms_table[hl_usfm_book.book_code] if hl_usfm_book else {}
