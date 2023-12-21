@@ -16,7 +16,7 @@ from document.config import settings
 from document.domain import document_generator, model, parsing, resource_lookup
 from document.domain.bible_books import BOOK_NAMES
 from document.domain.model import USFMBook
-from document.utils.file_utils import delete_tree, asset_file_needs_update
+from document.utils.file_utils import asset_file_needs_update
 from fastapi import FastAPI, HTTPException, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -104,14 +104,6 @@ def resource_types_and_names_for_lang(
 
 def log_event(context: dict[str, T]) -> None:
     logger.debug(context)
-
-
-def delete_asset(resource_dir: str, dir_to_preserve: str = "temp") -> None:
-    parent_dir = str(Path(resource_dir).parent.absolute())
-    if Path(parent_dir).name != dir_to_preserve:
-        delete_tree(parent_dir)
-    elif Path(resource_dir).name != dir_to_preserve:
-        delete_tree(resource_dir)
 
 
 def associated_gateway_language_for_heart_language(
