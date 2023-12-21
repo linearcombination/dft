@@ -4,11 +4,11 @@ DOC @ file:///Users/lriley/src/WA/github.com/linearcombination/DOC
 # Markdown
 # PyYAML
 # aiofiles
-# beautifulsoup4
+beautifulsoup4
 # celery
 # celery-types
 # docxtpl
-# fastapi[all]
+fastapi[all]
 # flower
 # htmldocx
 # html2docx
