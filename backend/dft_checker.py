@@ -169,7 +169,7 @@ def usfm_books(
             try:
                 # Reify the content
                 usfm_book = parsing.usfm_book_content(
-                    resource_lookup_dto, resource_dir, False
+                    resource_lookup_dto, resource_dir, [], False
                 )
             except:
                 logger.exception("Failed due to the following exception")
