@@ -1,5 +1,5 @@
 from openai import OpenAI
-from dft_checker import associated_gateway_language_for_heart_language
+from dft.domain.dft_checker import associated_gateway_language_for_heart_language
 from bs4 import BeautifulSoup
 
 client = OpenAI()

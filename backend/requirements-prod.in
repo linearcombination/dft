@@ -1,0 +1,7 @@
+-c requirements.txt
+mypy
+pytest
+pytest-datafiles
+pytest-icdiff
+pytest-repeat
+pytest-xdist

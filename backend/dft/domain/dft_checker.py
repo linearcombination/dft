@@ -11,39 +11,21 @@ from urllib.request import urlopen
 
 import openai
 from bs4 import BeautifulSoup
-from config import dft_settings
+from dft.config import dft_settings
 from document.config import settings
 from document.domain import document_generator, model, parsing, resource_lookup
 from document.domain.bible_books import BOOK_NAMES
 from document.domain.model import USFMBook
 from document.utils.file_utils import asset_file_needs_update
-from fastapi import FastAPI, HTTPException, Query, Request, status
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from god_the_father_terms import gtf_terms_table
+from dft.domain.god_the_father_terms import gtf_terms_table
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from pydantic import AnyHttpUrl, HttpUrl
-from son_of_god_terms import sog_terms_table
-
-app = FastAPI()
+from dft.domain.son_of_god_terms import sog_terms_table
 
 
 logger = settings.logger(__name__)
 
-# CORS configuration to allow frontend to talk to backend
-origins = settings.BACKEND_CORS_ORIGINS
-
-logger.debug("CORS origins: %s", origins)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-)
 
 COLUMN_LABELS: str = "<tr><td>Verse Reference</td><td>GL (from DOC)</td><td>HL (from DOC)</td><td>Backtranslate HL to GL via Chatgpt</td><td>Comments</td></tr>\n"
 
@@ -178,7 +160,6 @@ def usfm_books(
     return usfm_books
 
 
-@app.get("/gtf_terms_for_heart_language/{lang_code}/")
 def gtf_terms_for_language(
     lang_code: str,
     html_filename_part: str = "god_the_father_terms",
@@ -262,7 +243,6 @@ def gtf_terms_for_language(
     return pdf_filepath_
 
 
-@app.get("/sog_terms_for_heart_language/{lang_code}/")
 def sog_terms_for_language(
     lang_code: str,
     html_filename_part: str = "son_of_god_terms",
@@ -394,7 +374,7 @@ def backtranslate(
             lang_code,
             gl_lang_code,
         )
-        # Use module client, OPENAI_API_KEY gets picked up from env automatically
+        # OPENAI_API_KEY gets picked up from env automatically
         chat_completion = openai.chat.completions.create(
             messages=[
                 {
