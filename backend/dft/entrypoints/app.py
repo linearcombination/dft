@@ -34,17 +34,38 @@ app.add_middleware(
 )
 
 
-# @app.exception_handler(exceptions.InvalidDocumentRequestException)
-# def invalid_document_request_exception_handler(
-#     request: Request, exc: exceptions.InvalidDocumentRequestException
-# ) -> JSONResponse:
-#     logger.error(f"{request}: {exc}")
-#     return JSONResponse(
-#         status_code=status.HTTP_400_BAD_REQUEST,
-#         content={
-#             "message": f"{exc.message}",
-#         },
-#     )
+@app.get("/task_status/{task_id}")
+async def task_status(task_id: str) -> JSONResponse:
+    res: AsyncResult[dict[str, str]] = AsyncResult(task_id)
+    if res.state == celery.states.SUCCESS:
+        return JSONResponse({"state": celery.states.SUCCESS, "result": res.result})
+    return JSONResponse(
+        {
+            "state": res.state,
+        }
+    )
+
+
+@app.get("/gtf_terms_for_heart_language/{lang_code}/")
+async def gtf_terms_for_language(lang_code: str) -> tuple[str, str]:
+    """
+    Return file path to PDF of God the Father terms table
+    """
+    return dft_checker.gtf_terms_for_language(lang_code)
+
+
+@app.get("/sog_terms_for_heart_language/{lang_code}/")
+async def sog_terms_for_language(lang_code: str) -> tuple[str, str]:
+    """
+    Return file path to PDF of Son of God terms table
+    """
+    return dft_checker.sog_terms_for_language(lang_code)
+
+
+@app.get("/health/status")
+async def health_status() -> tuple[dict[str, str], int]:
+    """Ping-able server endpoint."""
+    return {"status": "ok"}, 200
 
 
 @app.exception_handler(RequestValidationError)
@@ -57,6 +78,19 @@ async def validation_exception_handler(
     return JSONResponse(
         content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
     )
+
+
+# @app.exception_handler(exceptions.InvalidDocumentRequestException)
+# def invalid_document_request_exception_handler(
+#     request: Request, exc: exceptions.InvalidDocumentRequestException
+# ) -> JSONResponse:
+#     logger.error(f"{request}: {exc}")
+#     return JSONResponse(
+#         status_code=status.HTTP_400_BAD_REQUEST,
+#         content={
+#             "message": f"{exc.message}",
+#         },
+#     )
 
 
 # @app.post("/documents")
@@ -117,37 +151,3 @@ async def validation_exception_handler(
 #     else:
 #         logger.debug("task_id: %s", task.id)
 #         return JSONResponse({"task_id": task.id})
-
-
-@app.get("/task_status/{task_id}")
-async def task_status(task_id: str) -> JSONResponse:
-    res: AsyncResult[dict[str, str]] = AsyncResult(task_id)
-    if res.state == celery.states.SUCCESS:
-        return JSONResponse({"state": celery.states.SUCCESS, "result": res.result})
-    return JSONResponse(
-        {
-            "state": res.state,
-        }
-    )
-
-
-@app.get("/gtf_terms_for_heart_language/{lang_code}/")
-async def gtf_terms_for_language(lang_code: str) -> str:
-    """
-    Return file path to PDF of God the Father terms table
-    """
-    return dft_checker.gtf_terms_for_language(lang_code)
-
-
-@app.get("/sog_terms_for_heart_language/{lang_code}/")
-async def sog_terms_for_language(lang_code: str) -> str:
-    """
-    Return file path to PDF of Son of God terms table
-    """
-    return dft_checker.sog_terms_for_language(lang_code)
-
-
-@app.get("/health/status")
-async def health_status() -> tuple[dict[str, str], int]:
-    """Ping-able server endpoint."""
-    return {"status": "ok"}, 200

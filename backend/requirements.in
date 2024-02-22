@@ -7,11 +7,11 @@ DOC @ file:///Users/lriley/src/WA/github.com/linearcombination/DOC
 beautifulsoup4
 # celery
 # celery-types
-# docxtpl
+docxtpl
 fastapi[all]
 # flower
-# htmldocx
-# html2docx
+htmldocx
+html2docx
 gql[all]
 # gunicorn
 # jinja2

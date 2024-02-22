@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y \
     # wget \
     # curl \
     # git \
-    unzip \
+    unzip # \
     # For additional fonts needed, specifically Chinese
     # texlive-fonts-recommended \
     # For ebook-convert
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
     # libglx0 \
     # libnss3
     # For usfm_tools and mypyc
-    gcc
+    # gcc
 
 # Get and install needed fonts.
 # RUN cd /tmp \
@@ -43,7 +43,6 @@ RUN mkdir -p working/output
 # Make the output directory where generated documents (PDF, ePub, Docx) are copied too.
 RUN mkdir -p document_output
 
-COPY .env .
 COPY pyproject.toml .
 COPY ./backend/requirements.txt .
 COPY ./backend/requirements-prod.txt .
@@ -62,6 +61,7 @@ RUN pip install -v -r requirements-prod.txt
 
 COPY ./backend ./backend
 # COPY ./tests ./tests
+COPY .env .
 
 # Make sure Python can find the code to run
 # ENV PYTHONPATH=/app/backend:/app/tests

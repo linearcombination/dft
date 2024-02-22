@@ -47,6 +47,7 @@ norecursedirs = [
   # "docs",
   "*.egg-info",
   ".git",
+  "working",
 ]
 [tool.isort]
 profile = "black"

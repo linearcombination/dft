@@ -25,5 +25,6 @@ class DftSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env_dft", case_sensitive=True)
 
 
-# mypy with pydantic v2 doesn't understand that defaults will be picked up from .env file as they had been in v1
+# mypy with pydantic v2 doesn't understand that defaults will be picked up from
+# .env file as they had been in v1
 dft_settings = DftSettings()  # type: ignore

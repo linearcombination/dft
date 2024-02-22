@@ -1,26 +1,21 @@
-import os
 import re
-import shutil
-import sys
-import urllib
-from contextlib import closing
-from os.path import basename, join, sep
-from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional, Sequence, TypeVar
-from urllib.request import urlopen
+from typing import Mapping, Optional, Sequence, TypeVar
 
+from docx import Document  # type: ignore
+from docxcompose.composer import Composer  # type: ignore
 import openai
 from bs4 import BeautifulSoup
 from dft.config import dft_settings
 from document.config import settings
-from document.domain import document_generator, model, parsing, resource_lookup
+from document.domain import document_generator, parsing, resource_lookup
 from document.domain.bible_books import BOOK_NAMES
 from document.domain.model import USFMBook
 from document.utils.file_utils import asset_file_needs_update
+from document.domain.assembly_strategies_docx import assembly_strategy_utils
 from dft.domain.god_the_father_terms import gtf_terms_table
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
-from pydantic import AnyHttpUrl, HttpUrl
+from pydantic import HttpUrl
 from dft.domain.son_of_god_terms import sog_terms_table
 
 
@@ -117,7 +112,7 @@ def associated_gateway_language_for_heart_language(
 
     # Provide a GraphQL query
     # params = {"heartLangCode": lang_code}
-    # TODO Formatting graphql strings is a bit of pain, this approach works.
+    # Formatting graphql strings is a bit of pain, using re.sub works.
     query = gql(re.sub("foo", lang_code, graphql_query))
     # result = client.execute(query, variable_values=params)
     result = client.execute(query)
@@ -163,10 +158,11 @@ def usfm_books(
 def gtf_terms_for_language(
     lang_code: str,
     html_filename_part: str = "god_the_father_terms",
+    title2: str = "God the Father Terms",
     column_labels: str = COLUMN_LABELS,
     book_names: Mapping[str, str] = BOOK_NAMES,
     terms: dict[str, dict[int, list[int]]] = gtf_terms_table,
-) -> str:
+) -> tuple[str, str]:
     """
     Produce table of output showing God the Father terms table for
     the requested language.
@@ -179,6 +175,8 @@ def gtf_terms_for_language(
     filename = f"{lang_code}_{html_filename_part}"
     html_filepath_ = document_generator.html_filepath(filename)
     pdf_filepath_ = document_generator.pdf_filepath(filename)
+    docx_filepath_ = document_generator.docx_filepath(filename)
+    enclosed_content = ""
     if asset_file_needs_update(html_filepath_):
         output_table: list[str] = []
         output_table.append(column_labels)
@@ -224,32 +222,53 @@ def gtf_terms_for_language(
                         f"<tr><td>{verse_reference}</td><td>{gl_verse}</td><td>{hl_verse}</td><td>{backtranslation}</td><td></td></tr>\n"
                     )
         content = f"<table>\n{''.join(output_table)}</table>"
+        header = document_generator.instantiated_html_header_template(
+            "header_enclosing_landscape"
+        )
+        enclosed_content = document_generator.enclose_html_content(content, header)
         document_generator.write_html_content_to_file(
-            content,
+            enclosed_content,
             html_filepath_,
         )
     else:
         logger.debug("Cache hit for %s", html_filepath_)
-    # Immediately return pre-built PDF if the document has previously been
-    # generated and is fresh enough. In that case, front run all requests to
-    # the cloud including the more low level resource asset caching
-    # mechanism for comparatively immediate return of PDF.
+    # If the document has previously been generated and is fresh enough,
+    # immediately return pre-built PDF.
     if asset_file_needs_update(pdf_filepath_):
         document_generator.convert_html_to_pdf(
             html_filepath_,
             pdf_filepath_,
             filename,
         )
-    return pdf_filepath_
+    if asset_file_needs_update(docx_filepath_):
+        doc = Document()
+        composer = Composer(doc)
+        subdoc = assembly_strategy_utils.create_docx_subdoc(
+            enclosed_content, lang_code, False, False
+        )
+        composer.append(subdoc)
+        title1 = "Language: " + lang_code
+        document_generator.convert_html_to_docx(
+            html_filepath_,
+            docx_filepath_,
+            composer,
+            False,
+            title1,
+            title2,
+            "Formatted for Translators",
+            "template.docx",
+        )
+    return pdf_filepath_, docx_filepath_
 
 
 def sog_terms_for_language(
     lang_code: str,
     html_filename_part: str = "son_of_god_terms",
+    title2: str = "Son of God Terms",
     column_labels: str = COLUMN_LABELS,
     book_names: Mapping[str, str] = BOOK_NAMES,
     terms: dict[str, dict[int, list[int]]] = sog_terms_table,
-) -> str:
+) -> tuple[str, str]:
     """
     Produce table of output showing God the Father terms table for
     the requested language.
@@ -262,7 +281,7 @@ def sog_terms_for_language(
     """
 
     return gtf_terms_for_language(
-        lang_code, html_filename_part, column_labels, book_names, terms
+        lang_code, html_filename_part, title2, column_labels, book_names, terms
     )
 
 
@@ -386,6 +405,11 @@ def backtranslate(
         )
         backtranslation = chat_completion.choices[0].message.content
     return backtranslation
+
+
+def main() -> None:
+    gtf_terms_for_language("ach-SS-acholi")
+    sog_terms_for_language("ziw")
 
 
 if __name__ == "__main__":
