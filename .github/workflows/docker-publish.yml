@@ -1,0 +1,171 @@
+name: Docker
+
+on: [push, pull_request]
+
+jobs:
+  #build and publish image
+  Build-API-Image:
+    name: Build API image
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: FranzDiebold/github-env-vars-action@v2
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+
+      - name: Build API image with buildx
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  Build-Frontend-Image:
+    name: Build Frontend image
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: FranzDiebold/github-env-vars-action@v2
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+      - name: Build frontend image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./frontend
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  Test-API-Image:
+    name: Test API image
+    runs-on: ubuntu-20.04
+    needs: Build-API-Image
+    steps:
+      - uses: actions/checkout@v3
+      - uses: FranzDiebold/github-env-vars-action@v2
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+      - name: Build API image with buildx
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          tags: wycliffeassociates/dft:local
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test API image with docker-compose
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.api-test.yml up --exit-code-from test-runner
+
+  Test-Frontend-Image:
+    name: Test Frontend image
+    runs-on: ubuntu-20.04
+    needs: [Build-API-Image, Build-Frontend-Image]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: FranzDiebold/github-env-vars-action@v2
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+      - name: Build api image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          tags: wycliffeassociates/dft:local
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build frontend image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./frontend
+          tags: wycliffeassociates/dft-ui:local
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build frontend-tests image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./frontend
+          file: ./frontend/testsDockerfile
+          tags: wycliffeassociates/dft-ui-tests:local
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test frontend image with docker-compose
+        run: docker compose -f docker-compose.yml -f docker-compose.frontend-test.yml up --exit-code-from frontend-test-runner
+
+  Push-Images:
+    name: Push images if this is a branch
+    runs-on: ubuntu-20.04
+    needs: [Test-API-Image, Test-Frontend-Image]
+    if: ${{ contains(fromJson('["push"]'), github.event_name) }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: FranzDiebold/github-env-vars-action@v2
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Set DFT docker tags
+        run: |
+          echo "DFT_TAG_SHA=wycliffeassociates/dft:$GITHUB_SHA" >> $GITHUB_ENV && \
+          echo "DFT_TAG_BRANCH=wycliffeassociates/dft:$CI_REF_NAME_SLUG" >> $GITHUB_ENV && \
+          echo "DFT_TAG_LATEST=wycliffeassociates/dft:latest" >> $GITHUB_ENV
+      - name: Set DFT-UI docker tags
+        run: |
+          echo "DFT_UI_TAG_SHA=wycliffeassociates/dft-ui:$GITHUB_SHA" >> $GITHUB_ENV && \
+          echo "DFT_UI_TAG_BRANCH=wycliffeassociates/dft-ui:$CI_REF_NAME_SLUG" >> $GITHUB_ENV && \
+          echo "DFT_UI_TAG_LATEST=wycliffeassociates/dft-ui:latest" >> $GITHUB_ENV
+
+      - name: Set version inside UI
+        run: |
+          PUBLIC_DFT_BUILD_TIMESTAMP=$(TZ='America/New_York' date +"%m-%d-%Y")
+          echo "PUBLIC_DFT_BUILD_TIMESTAMP=$PUBLIC_DFT_BUILD_TIMESTAMP" >> $GITHUB_ENV
+          echo "PUBLIC_DFT_VERSION=$CI_SHA_SHORT" >> $GITHUB_ENV
+
+      - name: Build and conditional push API image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DFT_TAG_SHA }}
+            ${{ env.DFT_TAG_BRANCH }}
+            ${{ env.DFT_TAG_LATEST }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build and conditional push UI image
+        uses: docker/build-push-action@v3
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.DFT_UI_TAG_SHA }}
+            ${{ env.DFT_UI_TAG_BRANCH }}
+            ${{ env.DFT_UI_TAG_LATEST }}
+          build-args: |
+            PUBLIC_DFT_VERSION=${{ env.PUBLIC_DFT_VERSION }}
+            PUBLIC_DFT_BUILD_TIMESTAMP=${{ env.PUBLIC_DFT_BUILD_TIMESTAMP }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+  Deploy-develop:
+    name: Develop deploy on successful develop build
+    needs: [Push-Images]
+    if: ${{ github.ref_name == 'dft-dev.walink.org' }}
+    runs-on: ubuntu-20.04
+    environment: dft-dev.walink.org
+    steps:
+      - name: Configure 1Password Service Account
+        uses: 1password/load-secrets-action@v1
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          DEV_DEPLOY_HOOK: op://DevOps/DEPLOY-dft-dev-walink-org-token/url
+
+      - name: Call Deploy Webhook
+        run: curl ${{ env.DEV_DEPLOY_HOOK }}
