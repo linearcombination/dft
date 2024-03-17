@@ -1,10 +1,10 @@
-FROM python:3.11-slim-bullseye
+FROM python:3.12-slim-bookworm
 
 RUN apt-get update && apt-get install -y \
     # wget \
     # curl \
-    # git \
-    unzip # \
+    git \
+    unzip \
     # For additional fonts needed, specifically Chinese
     # texlive-fonts-recommended \
     # For ebook-convert
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
     # libglx0 \
     # libnss3
     # For usfm_tools and mypyc
-    # gcc
+    gcc
 
 # Get and install needed fonts.
 # RUN cd /tmp \
@@ -46,7 +46,7 @@ RUN mkdir -p document_output
 COPY pyproject.toml .
 COPY ./backend/requirements.txt .
 COPY ./backend/requirements-prod.txt .
-# COPY template.docx .
+COPY template.docx .
 # COPY template_compact.docx .
 
 # See https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
@@ -62,6 +62,7 @@ RUN pip install -v -r requirements-prod.txt
 COPY ./backend ./backend
 # COPY ./tests ./tests
 COPY .env .
+COPY .env_dft .
 
 # Make sure Python can find the code to run
 # ENV PYTHONPATH=/app/backend:/app/tests

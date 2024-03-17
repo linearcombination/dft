@@ -1,20 +1,20 @@
-DOC @ file:///Users/lriley/src/WA/github.com/linearcombination/DOC
-# DOC @ https://github.com/linearcombination/DOC/archive/refs/tags/0.0.9.zip
+# DOC @ file:///Users/lriley/src/WA/github.com/linearcombination/DOC
+DOC @ git+https://github.com/WycliffeAssociates/DOC.git@upgrade-to-sveltekit-from-svelte
 # cython # For pydantic: https://pydantic-docs.helpmanual.io/install/
 # Markdown
 # PyYAML
 # aiofiles
 beautifulsoup4
-# celery
-# celery-types
+celery
+celery-types
 docxtpl
 fastapi[all]
-# flower
+flower
 htmldocx
 html2docx
 gql[all]
-# gunicorn
-# jinja2
+gunicorn
+jinja2
 # jsonpath-rw
 # jsonpath-rw-ext
 # lxml
@@ -23,7 +23,8 @@ gql[all]
 pydantic
 # pydantic-core
 # pydantic-settings
-# email-validator
+email-validator
+openai
 # psutil
 # python-dotenv
 # pyyaml
@@ -34,7 +35,7 @@ setuptools
 # toolz
 # trio
 # usfm_tools @ https://github.com/linearcombination/USFM-Tools/archive/refs/tags/0.0.9.zip
-# uvicorn
+uvicorn
 # weasyprint
 
 # types-PyYAML

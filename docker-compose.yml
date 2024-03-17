@@ -95,7 +95,7 @@ services:
       BACKEND_API_URL: ${BACKEND_API_URL:-http://localhost:5005}
       FILE_SERVER_URL: ${FILE_SERVER_URL:-http://localhost:8089}
       # TODO Get LogRocket ID for dft project
-      LOGROCKET_ID: ${LOGROCKET_ID:-ct7zyg/interleaved-resource-generator}
+      LOGROCKET_ID: ${LOGROCKET_ID:-ct7zyg/dft}
     ports:
       - ${FRONTEND_HOST_PORT:-8001}:80
     depends_on:

@@ -1,0 +1,301 @@
+#+AUTHOR:
+* Design notes
+# ** Requirements
+# *** Requirement
+# Allow creating a document out of any combination of resources from any
+# combination of languages supported (in translations.json).
+# *** Requirement
+# Produce PDF document.
+# *** Requirement
+# If generation of PDF document takes longer than X threshold of time,
+# then return a message to the user giving link where document will
+# eventually be found. E.g., display message to user in interface, say
+# after a cache miss on document request, or, via email. Details to be
+# determined.
+# *** Requirement
+# Handle TN, TA, TW, TQ, ULB, UDB resource requests. Later perhaps also
+# OBS, etc..
+** How to run a demo for yourself
+*** Get the code
+Get the dft repo:
+
+#+begin_src shell
+git clone https://github.com/linearcombination/dft.git
+#+end_src
+
+*** Run test suite inside the Docker container:
+**** One command to take down old running containers, build the new, and run all tests
+#+begin_src shell
+make all
+#+end_src
+
+Note: this will take about a half hour to an hour give or take depending on your
+network latency.
+
+The generated PDFs are copied from the Docker container to the
+=docker_document_output= directory at the base of the repo for ease of perusal.
+
+**** Or, instead of =make all= you can do one thing at a time using multiple Makefile targets
+***** Build the container
+
+First take down any running containers from previous runs:
+
+#+begin_src shell
+make down
+#+end_src
+
+then ...
+#+begin_src shell
+make build
+#+end_src
+***** Or, build the container the 2+Nth time from scratch
+
+First take down any running containers from previous runs:
+
+#+begin_src shell
+make down
+#+end_src
+
+Note: Sometimes, like if a docker process was interrupted by keyboard
+interrupt, you may have to be a bit more forceful with Docker and use
+'=docker stop id_of_image_obtained_by_docker_ps_-a'= and then '=docker rm
+id_of_image_obtained_by_docker_ps-a'= to clear out the old Docker
+images from a previous run.
+
+then
+
+#+begin_src shell
+make build-no-cache
+#+end_src
+
+if you really want to make sure you are getting a clean, from scratch,
+build with no caching.
+
+***** Run the tests
+#+begin_src shell
+make test
+#+end_src
+
+or, alternatively, run the unit tests separate from the end-to-end
+tests:
+#+begin_src shell
+make unit-tests
+#+end_src
+
+and
+#+begin_src shell
+make e2e-tests
+#+end_src
+*** Run demo outside Docker container
+**** Create and activate the virtual environment
+
+#+begin_src shell
+python3 -m venv .venv
+source .venv/bin/activate
+# or source .venv/bin/activate.fish if using fish shell
+#+end_src
+
+then ...
+
+**** Install dependencies
+#+begin_src shell
+make local-install-deps-dev
+# NOTE This next command takes a long time. Also note
+# that this next command is not idempotent. If you want to run it again
+# simply remove /tmp/USFM-Tools, then issue the command again.
+# make build-usfm-tools
+#+end_src
+
+this will setup your environment tools and install production and
+development dependencies for our app.
+
+Then ...
+
+**** Install our app in editable mode
+
+#+begin_src shell
+make local-install-app
+#+end_src
+
+then ...
+
+**** Run Redis Docker instance
+
+ #+begin_src shell
+ docker run -p 6379:6379 redis
+ #+end_src
+
+**** Run celery
+
+In another terminal window, in project root directory, in virtual env (source .venv/bin/activate[.fish]):
+ #+begin_src shell
+make local-run-celery
+ #+end_src
+
+ If you get an error regarding pydantic.core, then try this
+ #+begin_src shell
+ pip uninstall pydantic pydantic-core lxml orjson
+ #+end_src
+ followed by
+ #+begin_src shell
+ pip install pydantic pydantic-core lxml orjson
+ #+end_src
+
+
+ If you get an error regarding =cffi=, then uninstall and reinstall the
+ =cffi= package.
+
+ If you get an error regarding =PIL=, then uninstall and reinstall =Pillow=
+**** (optional) Run flower (a celery dashboard)
+
+In another terminal window, in project root directory, in virtual env:
+ #+begin_src shell
+make local-run-flower
+ #+end_src
+
+**** Run API
+:PROPERTIES:
+:ID:       03EC30D3-CB47-4230-B438-1D643386FCCC
+:END:
+
+In another terminal window, in project root directory, in virtual env:
+ #+begin_src shell
+ make local-server
+ #+end_src
+
+**** Run fileserver
+Note: Docs for this are not yet implemented for the outside Docker case.
+
+In another terminal window, in project root directory, in virtual env:
+ #+begin_src shell
+ make local-file-server
+ #+end_src
+**** (optional) Build and run the frontend
+
+You run the frontend in either vite's production mode or vite's
+development mode.
+***** To run frontend in vite production mode
+In another terminal window, in cd <project-root-directory>/frontend:
+ #+begin_src shell
+ npm run check && npm run build && npm run preview --host true
+ #+end_src
+
+***** To run frontend in vite development mode
+
+In another terminal window, in cd <project-root-directory>/frontend:
+ #+begin_src shell
+ npm run dev
+ #+end_src
+
+**** Note: how to handle situation if you run into runtime error with lxml
+
+If you get a runtime error (which you'll see in the terminal window
+from step 2 above) when interacting with the app about bs4
+module not having the lxml parser installed/available then you may
+need to do (in the project root dir with the venv activated):
+ #+begin_src shell
+ pip uninstall lxml
+ pip install cython # Make double sure cython is installed (it should already have been)
+ pip install lxml  # You should see pip invoking to build the lxml wheel as a C extension
+ #+end_src
+Then restart steps 2, 3, and 4 above.
+
+**** Note: how to handle situation if you run into can't import orjson.orjson error with orjs
+
+Reinstall orjson. In the project root with the virtual env activated:
+ #+begin_src shell
+ pip uninstall orjson
+ pip install orjson
+ #+end_src
+**** Use the UI
+
+Once all 6 steps are running fine you can navigate to
+http://localhost:4173 (if vite production mode is chosen) or
+http://localhost:5173 (if vite development mode is chosen) to access
+the app and interact with it for manual QA.
+
+**** (optional) Use the celery dashboard
+
+And then, if desired, you can navigate to http://localhost:5555 to
+access the flower celery dashboard.
+
+**** (optional) Run a quick smoke test (run one pytest test)
+In another terminal window, in project root directory, in virtual env:
+#+begin_src shell
+make local-smoke-test
+#+end_src
+
+Note that for this to work, you must have completed the steps above
+through starting the local backend server covered here: [[id:03EC30D3-CB47-4230-B438-1D643386FCCC][Run API]]
+
+**** Run unit tests
+In another terminal window, in project root directory, in virtual env:
+#+begin_src shell
+make local-unit-tests
+#+end_src
+
+Note that for this to work, you must have completed the steps above
+through starting the local backend server covered here: [[id:03EC30D3-CB47-4230-B438-1D643386FCCC][Run API]]
+**** Run e2e tests
+In another terminal window, in project root directory, in virtual env:
+#+begin_src shell
+make local-e2e-tests
+#+end_src
+
+** Auto-generated system diagram
+Regenerate image:
+
+#+begin_src shell  :results silent
+cd ..
+source .venv/bin/activate && make generate-class-diagrams
+#+end_src
+
+[[file+sys:classes.png]]
+** Caching design
+The system has two levels of caching:
+1. PDF document,
+   and a second lower level caching mechanism:
+2. resource asset file caching
+
+For (1), if the PDF document has previously been requested and built
+and is 'fresh' according to the caching policy expressed in
+=file_utils.asset_file_needs_update=, then immediately serve the PDF
+document to the requesting user.
+
+For (2), if any of the =DocumentRequest= instance's =ResourceRequest=
+instances have been obtained from the cloud before and are 'fresh'
+according to the caching policy expressed in
+=file_utils.asset_file_needs_update=, then don't fetch said resource
+asset files again, instead reuse the asset files already obtained.
+
+Also, in level (2): =translations.json= is obtained
+according to the caching policy expressed in
+=file_utils.source_file_needs_update=.
+** Handling links
+Translation notes can have links to translation words.
+
+Translation notes can have links to scripture verses.
+
+Translation words can have links to translation notes.
+
+Translation words can have links to scripture verses.
+
+There may be other such inter-dependencies between resource types.
+
+Problem: A document request may include translation notes, but not
+translation words, or vice versa. What should be done in such cases
+and others like them?
+
+1. Remove such links including the prose leading up to them and
+   following, e.g., (See also: _link_, _link_, _link_ blah blah blah)
+   a. Removing just those links could render the prose that includes
+   them non-sensical, for instance if later prose refers back to the
+   links.
+2. Instead of removing just the non-linkable links, remove the whole section
+   that includes them.
+   a. Loss of commentary - which is undesirable.
+3. Leave the links, they'll render visually, but just won't work as
+   links unless the resource type they reference is also part of the
+   document request. This is the choice I have implemented.
+
+Answer: 3

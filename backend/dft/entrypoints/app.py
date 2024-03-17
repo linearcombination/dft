@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import AnyHttpUrl
 
-from dft.domain import dft_checker
+from dft.domain import dft_checker, model
 
 app = FastAPI()
 
@@ -34,6 +34,70 @@ app.add_middleware(
 )
 
 
+@app.get("/language_codes_and_names")
+async def lang_codes_and_names() -> Sequence[tuple[str, str, bool]]:
+    """
+    Return list of all available language code, name tuples.
+    """
+    return await dft_checker.lang_codes_and_names()  # When using data API
+
+
+@app.post("/documents")
+async def generate_document(
+    document_request: model.DocumentRequest,
+) -> JSONResponse:
+    """
+    Return file paths to PDF and Docx for God the Father terms table
+    and Son of God terms table.
+    """
+    try:
+        task = dft_checker.generate_document.apply_async(
+            args=(document_request.json(),)
+        )
+    except HTTPException as exc:
+        raise exc
+    except Exception as exc:  # catch any exceptions we weren't expecting, handlers handle the ones we do expect.
+        logger.exception(
+            "There was an error while attempting to fulfill the document "
+            "request. Likely reason is the following exception:"
+        )
+        # Handle exceptions that aren't handled otherwise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+    else:
+        logger.debug("task_id: %s", task.id)
+        return JSONResponse({"task_id": task.id})
+
+
+@app.post("/documents_docx")
+async def generate_docx_document(
+    document_request: model.DocumentRequest,
+) -> JSONResponse:
+    """
+    Return file paths to PDF and Docx for God the Father terms table
+    and Son of God terms table.
+    """
+    try:
+        task = dft_checker.generate_docx_document.apply_async(
+            args=(document_request.json(),)
+        )
+    except HTTPException as exc:
+        raise exc
+    except Exception as exc:  # catch any exceptions we weren't expecting, handlers handle the ones we do expect.
+        logger.exception(
+            "There was an error while attempting to fulfill the document "
+            "request. Likely reason is the following exception:"
+        )
+        # Handle exceptions that aren't handled otherwise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+    else:
+        logger.debug("task_id: %s", task.id)
+        return JSONResponse({"task_id": task.id})
+
+
 @app.get("/task_status/{task_id}")
 async def task_status(task_id: str) -> JSONResponse:
     res: AsyncResult[dict[str, str]] = AsyncResult(task_id)
@@ -44,22 +108,6 @@ async def task_status(task_id: str) -> JSONResponse:
             "state": res.state,
         }
     )
-
-
-@app.get("/gtf_terms_for_heart_language/{lang_code}/")
-async def gtf_terms_for_language(lang_code: str) -> tuple[str, str]:
-    """
-    Return file path to PDF of God the Father terms table
-    """
-    return dft_checker.gtf_terms_for_language(lang_code)
-
-
-@app.get("/sog_terms_for_heart_language/{lang_code}/")
-async def sog_terms_for_language(lang_code: str) -> tuple[str, str]:
-    """
-    Return file path to PDF of Son of God terms table
-    """
-    return dft_checker.sog_terms_for_language(lang_code)
 
 
 @app.get("/health/status")

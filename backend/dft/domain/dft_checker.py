@@ -1,13 +1,16 @@
 import re
-from typing import Mapping, Optional, Sequence, TypeVar
+from typing import Any, Mapping, Optional, Sequence, TypeVar
 
+from celery import current_task
 from docx import Document  # type: ignore
 from docxcompose.composer import Composer  # type: ignore
 import openai
 from bs4 import BeautifulSoup
 from dft.config import dft_settings
+
+# from dft.domain import model
 from document.config import settings
-from document.domain import document_generator, parsing, resource_lookup
+from document.domain import document_generator, parsing, resource_lookup, worker
 from document.domain.bible_books import BOOK_NAMES
 from document.domain.model import USFMBook
 from document.utils.file_utils import asset_file_needs_update
@@ -15,9 +18,10 @@ from document.domain.assembly_strategies_docx import assembly_strategy_utils
 from dft.domain.god_the_father_terms import gtf_terms_table
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
-from pydantic import HttpUrl
+from pydantic import HttpUrl, Json
 from dft.domain.son_of_god_terms import sog_terms_table
-
+from dft.domain.model import DocumentRequest
+from toolz import unique  # type: ignore
 
 logger = settings.logger(__name__)
 
@@ -27,11 +31,90 @@ COLUMN_LABELS: str = "<tr><td>Verse Reference</td><td>GL (from DOC)</td><td>HL (
 T = TypeVar("T")
 
 
+async def lang_codes_and_names(
+    # WAITING Needed to download translations.json for other functions where data API is not mature enough yet:
+    working_dir: str = settings.RESOURCE_ASSETS_DIR,
+    # WAITING Needed to download translations.json for other functions where data API is not mature enough yet:
+    translations_json_location: HttpUrl = settings.TRANSLATIONS_JSON_LOCATION,
+    lang_code_filter_list: Sequence[str] = settings.LANG_CODE_FILTER_LIST,
+    gateway_languages: Sequence[str] = settings.GATEWAY_LANGUAGES,
+    data_api_url: str = "https://api.bibleineverylanguage.org/v1/graphql",
+    # WAITING WA is going to add an is_gateway attribute eventually so that we
+    # don't have to figure out if gateway ourselves
+    graphql_query: str = """query MyQuery {
+  content(
+    where: {wa_content_meta: {status: {_eq: "Primary"}, show_on_biel: {_eq: true}}}
+  ) {
+    language {
+      ietf_code
+      english_name
+      national_name
+    }
+  }
+}
+        """,
+) -> Sequence[tuple[str, str, bool]]:
+    """
+    >>> from document.domain import resource_lookup
+    >>> # data = await resource_lookup.lang_codes_and_names2()
+    >>> # data[0]
+    ('abz', 'Abui', False)
+    """
+
+    # WAITING Needed to download translations.json for other functions
+    # where data API is not mature enough yet. Remove when data API can
+    # fully replace translations.json. For now this will make the app
+    # slower.
+    # data = fetch_source_data(working_dir, str(translations_json_location))
+
+    # Select your transport with a defined url endpoint
+    transport = AIOHTTPTransport(url=data_api_url)
+
+    # Create a GraphQL client using the defined transport
+    client = Client(transport=transport, fetch_schema_from_transport=True)
+
+    query = gql(graphql_query)
+    data = await client.execute_async(query)
+    languages_info = None
+    values = []
+    try:
+        languages_info = data["content"]
+        # logger.debug("data['content'][0]: %s", languages_info)
+        for language_info in languages_info:
+            language = language_info["language"]
+            ietf_code = language["ietf_code"]
+            english_name = language["english_name"]
+            national_name = language["national_name"]
+            is_gateway = ietf_code in gateway_languages
+            if ietf_code not in lang_code_filter_list:
+                if english_name in national_name:
+                    logger.debug(
+                        "About to add: %s", (ietf_code, national_name, is_gateway)
+                    )
+                    values.append((ietf_code, national_name, is_gateway))
+                else:
+                    logger.debug(
+                        "About to add: %s",
+                        (ietf_code, f"{national_name} ({english_name})", is_gateway),
+                    )
+                    values.append(
+                        (ietf_code, f"{national_name} ({english_name})", is_gateway)
+                    )
+
+    except:
+        logger.exception("Failed due to the following exception")
+    unique_values = unique(values, key=lambda value: value[0])
+    # heart_langs = [
+    #     unique_value for unique_value in unique_values if not unique_value[2]
+    # ]
+    # logger.debug("heart_langs: %s", heart_langs)
+    return sorted(unique_values, key=lambda value: value[1])
+
+
 def resource_types_and_names_for_lang(
     lang_code: str,
     working_dir: str = settings.RESOURCE_ASSETS_DIR,
     english_resource_type_map: Mapping[str, str] = settings.ENGLISH_RESOURCE_TYPE_MAP,
-    id_resource_type_map: Mapping[str, str] = settings.ID_RESOURCE_TYPE_MAP,
     translations_json_location: HttpUrl = settings.TRANSLATIONS_JSON_LOCATION,
     all_usfm_resource_types: Sequence[str] = settings.ALL_USFM_RESOURCE_TYPES,
     all_tn_resource_types: Sequence[str] = settings.ALL_TN_RESOURCE_TYPES,
@@ -46,8 +129,6 @@ def resource_types_and_names_for_lang(
     logger.debug("About to get resource types and names for lang: %s", lang_code)
     if lang_code == "en":
         return [(key, value) for key, value in english_resource_type_map.items()]
-    if lang_code == "id":
-        return [(key, value) for key, value in id_resource_type_map.items()]
     data = resource_lookup.fetch_source_data(
         working_dir, str(translations_json_location)
     )
@@ -155,14 +236,73 @@ def usfm_books(
     return usfm_books
 
 
+@worker.app.task(
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def generate_document(document_request_json: Json[Any]) -> Json[Any]:
+    current_task.update_state(state="Receiving request")
+    document_request = DocumentRequest.parse_raw(document_request_json)
+    logger.debug(
+        "document_request: %s",
+        document_request,
+    )
+    lang_code = document_request.lang_code
+    terms = document_request.terms
+    document_request_key_ = ""
+    if terms == "gtf":
+        document_request_key_ = document_request_key(
+            lang_code, "god_the_father_terms", "pdf"
+        )
+        gtf_terms_for_language(lang_code, True, document_request_key_)
+    elif terms == "sog":
+        document_request_key_ = document_request_key(
+            lang_code, "son_of_god_terms", "pdf"
+        )
+        sog_terms_for_language(lang_code, True, document_request_key_)
+    return document_request_key_
+
+
+@worker.app.task(
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def generate_docx_document(document_request_json: Json[Any]) -> Json[Any]:
+    current_task.update_state(state="Receiving request")
+    logger.debug("About to parse document request json...")
+    document_request = DocumentRequest.parse_raw(document_request_json)
+    logger.debug(
+        "document_request: %s",
+        document_request,
+    )
+    lang_code = document_request.lang_code
+    terms = document_request.terms
+    document_request_key_ = ""
+    if terms == "gtf":
+        document_request_key_ = document_request_key(
+            lang_code, "god_the_father_terms", "docx"
+        )
+        gtf_terms_for_language(lang_code, True, document_request_key_)
+    elif terms == "sog":
+        document_request_key_ = document_request_key(
+            lang_code, "son_of_god_terms", "docx"
+        )
+        sog_terms_for_language(lang_code, True, document_request_key_)
+    return document_request_key_
+
+
 def gtf_terms_for_language(
     lang_code: str,
-    html_filename_part: str = "god_the_father_terms",
+    docx_p: bool,
+    document_request_key: str,
+    # html_filename_part: str = "god_the_father_terms",
     title2: str = "God the Father Terms",
     column_labels: str = COLUMN_LABELS,
     book_names: Mapping[str, str] = BOOK_NAMES,
     terms: dict[str, dict[int, list[int]]] = gtf_terms_table,
-) -> tuple[str, str]:
+) -> str:
     """
     Produce table of output showing God the Father terms table for
     the requested language.
@@ -170,16 +310,20 @@ def gtf_terms_for_language(
     Usage:
     >>> #gtf_terms_for_language("tpi")
     >>> #gtf_terms_for_language("adh")
-    >>> gtf_terms_for_language("ach-SS-acholi")
+    >>> gtf_terms_for_language("ach-SS-acholi", True, )
     """
-    filename = f"{lang_code}_{html_filename_part}"
-    html_filepath_ = document_generator.html_filepath(filename)
-    pdf_filepath_ = document_generator.pdf_filepath(filename)
-    docx_filepath_ = document_generator.docx_filepath(filename)
+    # filename = f"{lang_code}_{html_filename_part}"
+    # document_request_key_ = document_request_key(
+    #     lang_code, html_filename_part, "docx" if docx_p else "pdf"
+    # )
+    html_filepath_ = document_generator.html_filepath(document_request_key)
+    pdf_filepath_ = document_generator.pdf_filepath(document_request_key)
+    docx_filepath_ = document_generator.docx_filepath(document_request_key)
     enclosed_content = ""
     if asset_file_needs_update(html_filepath_):
         output_table: list[str] = []
         output_table.append(column_labels)
+        current_task.update_state(state="Getting associated gateway language")
         gl_lang_code = associated_gateway_language_for_heart_language(lang_code)
         logger.debug("About to get data for heart language: %s", lang_code)
         logger.debug("About to get data for gateway language: %s", gl_lang_code)
@@ -214,6 +358,9 @@ def gtf_terms_for_language(
                         else ""
                     )
                     verse_reference = f"{book_names[hl_usfm_book.book_code]} {hl_gtf_chapter_num}:{hl_verse_num}"
+                    current_task.update_state(
+                        state=f"Backtranslating {lang_code} verse {verse_reference} using AI"
+                    )
                     backtranslation = backtranslate(
                         hl_verse, verse_reference, lang_code, gl_lang_code
                     )
@@ -234,13 +381,13 @@ def gtf_terms_for_language(
         logger.debug("Cache hit for %s", html_filepath_)
     # If the document has previously been generated and is fresh enough,
     # immediately return pre-built PDF.
-    if asset_file_needs_update(pdf_filepath_):
+    if not docx_p and asset_file_needs_update(pdf_filepath_):
         document_generator.convert_html_to_pdf(
             html_filepath_,
             pdf_filepath_,
-            filename,
+            document_request_key,
         )
-    if asset_file_needs_update(docx_filepath_):
+    if docx_p and asset_file_needs_update(docx_filepath_):
         doc = Document()
         composer = Composer(doc)
         subdoc = assembly_strategy_utils.create_docx_subdoc(
@@ -258,17 +405,19 @@ def gtf_terms_for_language(
             "Formatted for Translators",
             "template.docx",
         )
-    return pdf_filepath_, docx_filepath_
+    return document_request_key
 
 
 def sog_terms_for_language(
     lang_code: str,
-    html_filename_part: str = "son_of_god_terms",
+    docx_p: bool,
+    document_request_key: str,
+    # html_filename_part: str = "son_of_god_terms",
     title2: str = "Son of God Terms",
     column_labels: str = COLUMN_LABELS,
     book_names: Mapping[str, str] = BOOK_NAMES,
     terms: dict[str, dict[int, list[int]]] = sog_terms_table,
-) -> tuple[str, str]:
+) -> str:
     """
     Produce table of output showing God the Father terms table for
     the requested language.
@@ -281,7 +430,14 @@ def sog_terms_for_language(
     """
 
     return gtf_terms_for_language(
-        lang_code, html_filename_part, title2, column_labels, book_names, terms
+        # lang_code, html_filename_part, title2, column_labels, book_names, terms
+        lang_code,
+        docx_p,
+        document_request_key,
+        title2,
+        column_labels,
+        book_names,
+        terms,
     )
 
 
@@ -407,9 +563,23 @@ def backtranslate(
     return backtranslation
 
 
-def main() -> None:
-    gtf_terms_for_language("ach-SS-acholi")
-    sog_terms_for_language("ziw")
+def document_request_key(
+    lang_code: str,
+    table_name: str,
+    doc_type: str,
+    underscore: str = "_",
+) -> str:
+    """
+    Create and return the document_request_key. The
+    document_request_key uniquely identifies a document request.
+    """
+    document_request_key = underscore.join([lang_code, table_name, doc_type])
+    return document_request_key
+
+
+# def main() -> None:
+#     gtf_terms_for_language("ach-SS-acholi", True, "foo")
+#     sog_terms_for_language("ziw", True, "bar")
 
 
 if __name__ == "__main__":
